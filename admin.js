@@ -39,6 +39,10 @@ const fileNames = document.querySelector("[data-file-names]");
 const gallery = document.querySelector("[data-admin-gallery]");
 const progressTrack = document.querySelector("[data-progress-track]");
 const progressBar = document.querySelector("[data-progress-bar]");
+const progressRole = document.querySelector("[data-progress-role]");
+const uploadStage = document.querySelector("[data-upload-stage]");
+const uploadCounter = document.querySelector("[data-upload-counter]");
+const uploadQueue = document.querySelector("[data-upload-queue]");
 
 function setStatus(message, isError = false) {
   statusMessage.textContent = message;
@@ -110,6 +114,22 @@ document.querySelector("[data-refresh]").addEventListener("click", refreshGaller
 imageInput.addEventListener("change", () => {
   const files = [...imageInput.files];
   fileNames.textContent = files.length ? `تم اختيار ${files.length} صورة` : "لم يتم اختيار صور";
+  if (!files.length) return;
+  uploadQueue.replaceChildren(...files.map((file) => {
+    const item = document.createElement("li");
+    item.dataset.state = "pending";
+    const name = document.createElement("span");
+    name.textContent = file.name;
+    const state = document.createElement("span");
+    state.textContent = "في الانتظار";
+    item.append(name, state);
+    return item;
+  }));
+  uploadCounter.textContent = `${files.length} صورة`;
+  uploadStage.textContent = "جاهز للرفع";
+  progressTrack.hidden = false;
+  progressBar.style.width = "0%";
+  progressRole.setAttribute("aria-valuenow", "0");
 });
 
 function canvasBlob(canvas, quality) {
@@ -175,41 +195,64 @@ uploadForm.addEventListener("submit", async (event) => {
   uploadForm.querySelector("button[type='submit']").disabled = true;
   progressTrack.hidden = false;
   progressBar.style.width = "0%";
+  progressRole.setAttribute("aria-valuenow", "0");
   let completedUploads = 0;
+  const failures = [];
+  const queueItems = [...uploadQueue.children];
+  const updateProgress = (percent) => {
+    const value = Math.max(0, Math.min(100, Math.round(percent)));
+    progressBar.style.width = `${value}%`;
+    progressRole.setAttribute("aria-valuenow", String(value));
+  };
+  const updateQueue = (index, state, text) => {
+    const item = queueItems[index];
+    item.dataset.state = state;
+    item.lastElementChild.textContent = text;
+  };
 
   try {
     for (const [index, file] of files.entries()) {
-      setStatus(`جارٍ تجهيز الصورة ${index + 1} من ${files.length}...`);
-      const compressed = await compressImage(file);
-      const fileName = `${crypto.randomUUID()}.webp`;
-      const reservation = await reserveImageUpload({ fileName, expectedBytes: compressed.size });
-      const storagePath = reservation.data.storagePath;
+      uploadCounter.textContent = `${index + 1} / ${files.length}`;
+      uploadStage.textContent = `تجهيز الصورة ${index + 1} من ${files.length}`;
+      setStatus(`جارٍ تجهيز ${file.name}...`);
+      updateQueue(index, "active", "جارٍ التجهيز");
+      let fileName;
       try {
-        setStatus(`جارٍ رفع الصورة ${index + 1} من ${files.length}...`);
+        const compressed = await compressImage(file);
+        fileName = `${crypto.randomUUID()}.webp`;
+        const reservation = await reserveImageUpload({ fileName, expectedBytes: compressed.size });
+        const storagePath = reservation.data.storagePath;
+        uploadStage.textContent = `رفع الصورة ${index + 1} من ${files.length}`;
+        updateQueue(index, "active", "جارٍ الرفع · 0٪");
+        setStatus(`جارٍ رفع ${file.name}...`);
         await uploadBlob(compressed, storagePath, (fraction) => {
-          const progress = ((index + fraction) / files.length) * 100;
-          progressBar.style.width = `${progress}%`;
+          updateProgress(((index + fraction) / files.length) * 100);
+          updateQueue(index, "active", `جارٍ الرفع · ${Math.round(fraction * 100)}٪`);
         });
         await finishImageUpload({ fileName });
         completedUploads += 1;
+        updateQueue(index, "done", "تم الرفع");
+        updateProgress(((index + 1) / files.length) * 100);
       } catch (error) {
-        await cancelImageUpload({ fileName }).catch(() => {});
-        throw error;
+        if (fileName) await cancelImageUpload({ fileName }).catch(() => {});
+        const message = error.message === "image-decode-failed" || error.message === "image-too-detailed"
+          ? "تعذر تجهيز الصورة"
+          : error.message === "webp-unsupported"
+            ? "المتصفح لا يدعم تجهيز الصور"
+            : friendlyError(error);
+        failures.push({ name: file.name, message });
+        updateQueue(index, "error", "تعذر الرفع");
       }
     }
-    progressBar.style.width = "100%";
+    updateProgress(100);
     uploadForm.reset();
     fileNames.textContent = "لم يتم اختيار صور";
-    setStatus("تم رفع الصور بنجاح.");
-    await refreshGallery();
-  } catch (error) {
-    const message = error.message === "image-decode-failed" || error.message === "image-too-detailed"
-      ? "تعذر تجهيز إحدى الصور. جرّب صورة أخرى أو احفظها بصيغة مختلفة."
-      : error.message === "webp-unsupported"
-        ? "المتصفح لا يدعم تجهيز الصور. جرّب متصفحًا أحدث."
-      : friendlyError(error);
+    uploadStage.textContent = "اكتملت الدفعة";
+    uploadCounter.textContent = `${completedUploads} من ${files.length} نجحت`;
+    setStatus(failures.length
+      ? `اكتمل رفع ${completedUploads} صورة، وتعذر رفع ${failures.length}. راجع الصور المحددة بالأحمر.`
+      : `تم رفع ${completedUploads} صورة بنجاح.` , failures.length > 0);
     if (completedUploads) await refreshGallery();
-    setStatus(message, true);
   } finally {
     uploadForm.querySelector("button[type='submit']").disabled = false;
   }

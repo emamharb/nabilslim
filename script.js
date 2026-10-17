@@ -171,7 +171,10 @@ function createGalleryItem([src, label], index) {
   item.type = "button";
   item.setAttribute("aria-label", `تكبير صورة ${label}`);
   const eager = index < 8;
-  item.innerHTML = `<img src="${eager ? src : transparentPixel}" ${eager ? "" : `data-src="${src}"`} alt="${label}" loading="${eager ? "eager" : "lazy"}" decoding="async">`;
+  item.innerHTML = `<img src="${eager ? src : transparentPixel}" ${eager ? "" : `data-src="${src}"`} alt="${label}" loading="${eager ? "eager" : "lazy"}" decoding="async"${index === 0 ? ' fetchpriority="high"' : ""}>`;
+  const image = item.querySelector("img");
+  image.addEventListener("load", () => image.classList.add("is-loaded"), { once: true });
+  image.addEventListener("error", () => image.classList.add("is-error"), { once: true });
   item.addEventListener("click", () => openLightbox(src, label, index));
   return item;
 }
@@ -225,7 +228,6 @@ function lazyLoadImages() {
       const image = entry.target;
       image.src = image.dataset.src;
       image.removeAttribute("data-src");
-      image.addEventListener("load", () => image.classList.add("is-loaded"), { once: true });
       observer.unobserve(image);
     });
   }, { rootMargin: "550px 0px" });

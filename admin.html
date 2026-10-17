@@ -36,7 +36,11 @@
           <label class="file-picker">اختيار الصور<input name="images" type="file" accept="image/*" multiple required><span data-file-names>لم يتم اختيار صور</span></label>
           <button class="primary-button" type="submit">رفع الصور</button>
         </form>
-        <div class="progress-track" data-progress-track hidden><span data-progress-bar></span></div>
+        <section class="upload-progress" data-progress-track hidden aria-live="polite">
+          <div class="upload-progress-heading"><strong data-upload-stage>جاهز للرفع</strong><span data-upload-counter></span></div>
+          <div class="progress-track" role="progressbar" aria-label="تقدم رفع الصور" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-progress-role><span data-progress-bar></span></div>
+          <ol class="upload-queue" data-upload-queue></ol>
+        </section>
       </section>
       <div class="gallery-toolbar"><h2>الصور المضافة</h2><button class="text-button" type="button" data-refresh>تحديث</button></div>
       <div class="admin-gallery" data-admin-gallery></div>
