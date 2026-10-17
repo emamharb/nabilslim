@@ -229,8 +229,8 @@ async function refreshGallery() {
       setStatus("لا توجد صور مضافة بعد.");
       return;
     }
-    snapshot.docs.forEach((document) => {
-      const image = document.data();
+    snapshot.docs.forEach((docSnapshot) => {
+      const image = docSnapshot.data();
       const card = document.createElement("article");
       card.className = "admin-image";
       const thumbnail = document.createElement("img");
