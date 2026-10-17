@@ -47,10 +47,14 @@ function setStatus(message, isError = false) {
 }
 
 function friendlyError(error) {
+  const code = error?.code || error?.name || "unknown";
+  console.error("[admin] Firebase operation failed", { code, message: error?.message, customData: error?.customData }, error);
   if (error?.code === "functions/resource-exhausted") return "تعذر حفظ الصور الآن.";
   if (error?.code === "auth/invalid-credential" || error?.code === "auth/wrong-password" || error?.code === "auth/user-not-found") return "بيانات الدخول غير صحيحة.";
+  if (error?.code === "firestore/permission-denied" || error?.code === "permission-denied") return "تعذر قراءة صور المعرض. راجع صلاحيات Firestore.";
+  if (error?.code === "functions/not-found") return "دالة Firebase المطلوبة غير منشورة.";
   if (error?.code === "storage/unauthorized" || error?.code === "functions/permission-denied") return "الحساب غير مصرح له بهذه العملية.";
-  return "حصلت مشكلة أثناء تنفيذ الطلب. حاول مرة أخرى.";
+  return `حصلت مشكلة أثناء تنفيذ الطلب (${code}). حاول مرة أخرى.`;
 }
 
 onAuthStateChanged(auth, async (user) => {
