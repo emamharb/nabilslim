@@ -8,8 +8,8 @@ try {
   const images = await getDocs(query(collection(db, "gallery"), orderBy("createdAt", "desc")));
   const cloudShots = images.docs
     .map((document) => document.data())
-    .filter((image) => typeof image.url === "string" && typeof image.label === "string")
-    .map((image) => [image.url, image.label]);
+    .filter((image) => typeof image.url === "string")
+    .map((image) => [image.url, "صورة من المعرض"]);
   window.appendCloudGalleryImages(cloudShots);
 } catch (error) {
   console.warn("تعذر تحميل صور المعرض الإضافية.", error);

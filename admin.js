@@ -27,7 +27,6 @@ const functions = getFunctions(app);
 const reserveImageUpload = httpsCallable(functions, "reserveImageUpload");
 const finishImageUpload = httpsCallable(functions, "finishImageUpload");
 const cancelImageUpload = httpsCallable(functions, "cancelImageUpload");
-const updateImageLabel = httpsCallable(functions, "updateImageLabel");
 const deleteGalleryImage = httpsCallable(functions, "deleteGalleryImage");
 
 const loginPanel = document.querySelector("[data-login-panel]");
@@ -173,7 +172,6 @@ uploadForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const files = [...imageInput.files];
   if (!files.length) return;
-  const labelPrefix = uploadForm.elements.label.value.trim();
   uploadForm.querySelector("button[type='submit']").disabled = true;
   progressTrack.hidden = false;
   progressBar.style.width = "0%";
@@ -184,8 +182,7 @@ uploadForm.addEventListener("submit", async (event) => {
       setStatus(`جارٍ تجهيز الصورة ${index + 1} من ${files.length}...`);
       const compressed = await compressImage(file);
       const fileName = `${crypto.randomUUID()}.webp`;
-      const label = labelPrefix || file.name.replace(/\.[^.]+$/, "").slice(0, 80) || "صورة جديدة";
-      const reservation = await reserveImageUpload({ fileName, expectedBytes: compressed.size, label });
+      const reservation = await reserveImageUpload({ fileName, expectedBytes: compressed.size });
       const storagePath = reservation.data.storagePath;
       try {
         setStatus(`جارٍ رفع الصورة ${index + 1} من ${files.length}...`);
@@ -193,7 +190,7 @@ uploadForm.addEventListener("submit", async (event) => {
           const progress = ((index + fraction) / files.length) * 100;
           progressBar.style.width = `${progress}%`;
         });
-        await finishImageUpload({ fileName, label });
+        await finishImageUpload({ fileName });
         completedUploads += 1;
       } catch (error) {
         await cancelImageUpload({ fileName }).catch(() => {});
@@ -235,35 +232,13 @@ async function refreshGallery() {
       card.className = "admin-image";
       const thumbnail = document.createElement("img");
       thumbnail.src = image.url;
-      thumbnail.alt = image.label || "صورة من المعرض";
+      thumbnail.alt = "صورة من المعرض";
       thumbnail.loading = "lazy";
 
       const content = document.createElement("div");
       content.className = "admin-image-content";
-      const labelInput = document.createElement("input");
-      labelInput.type = "text";
-      labelInput.maxLength = 80;
-      labelInput.value = image.label || "";
-      labelInput.setAttribute("aria-label", "وصف الصورة");
-
       const actions = document.createElement("div");
       actions.className = "image-actions";
-      const saveButton = document.createElement("button");
-      saveButton.type = "button";
-      saveButton.textContent = "حفظ الوصف";
-      saveButton.addEventListener("click", async () => {
-        saveButton.disabled = true;
-        try {
-          await updateImageLabel({ fileName: image.fileName, label: labelInput.value });
-          setStatus("تم تحديث وصف الصورة.");
-          thumbnail.alt = labelInput.value.trim();
-        } catch (error) {
-          setStatus(friendlyError(error), true);
-        } finally {
-          saveButton.disabled = false;
-        }
-      });
-
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
       deleteButton.className = "delete-button";
@@ -281,8 +256,8 @@ async function refreshGallery() {
         }
       });
 
-      actions.append(saveButton, deleteButton);
-      content.append(labelInput, actions);
+      actions.append(deleteButton);
+      content.append(actions);
       card.append(thumbnail, content);
       gallery.append(card);
     });

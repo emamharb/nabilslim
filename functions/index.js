@@ -34,6 +34,17 @@ function cleanLabel(value, fallback = "صورة جديدة") {
   return label || fallback;
 }
 
+function storageUsage(snapshot) {
+  if (!snapshot.exists) return { usedBytes: 0, reservedBytes: 0 };
+  const usage = snapshot.data();
+  if (!Number.isSafeInteger(usage.usedBytes) || usage.usedBytes < 0
+    || !Number.isSafeInteger(usage.reservedBytes) || usage.reservedBytes < 0
+    || usage.usedBytes + usage.reservedBytes > MAX_STORAGE_BYTES) {
+    throw new HttpsError("failed-precondition", "تعذر حفظ الصورة.");
+  }
+  return { usedBytes: usage.usedBytes, reservedBytes: usage.reservedBytes };
+}
+
 async function cleanupExpiredReservations(uid) {
   const expired = await db.collection(`uploadReservations/${uid}/files`)
     .where("expiresAt", "<=", Timestamp.now()).limit(100).get();
@@ -55,7 +66,7 @@ async function cleanupExpiredReservations(uid) {
     await db.runTransaction(async (transaction) => {
       const [reservation, usage] = await Promise.all([transaction.get(item.ref), transaction.get(usageRef)]);
       if (!reservation.exists || reservation.data().state !== "cleaning") return;
-      const currentUsage = usage.exists ? usage.data() : { usedBytes: 0, reservedBytes: 0 };
+      const currentUsage = storageUsage(usage);
       transaction.set(usageRef, {
         usedBytes: currentUsage.usedBytes,
         reservedBytes: Math.max(0, currentUsage.reservedBytes - reservation.data().expectedBytes),
@@ -84,9 +95,9 @@ exports.reserveImageUpload = onCall(async (request) => {
     ]);
     if (reservationSnapshot.exists) throw new HttpsError("already-exists", "الطلب موجود بالفعل.");
 
-    const usage = usageSnapshot.exists ? usageSnapshot.data() : { usedBytes: 0, reservedBytes: 0 };
+    const usage = storageUsage(usageSnapshot);
 
-    if (usage.usedBytes + usage.reservedBytes + expectedBytes > MAX_STORAGE_BYTES) {
+    if (usage.usedBytes + usage.reservedBytes > MAX_STORAGE_BYTES - expectedBytes) {
       throw new HttpsError("resource-exhausted", "تعذر حفظ الصورة.");
     }
 
@@ -99,7 +110,6 @@ exports.reserveImageUpload = onCall(async (request) => {
       uid,
       fileName,
       expectedBytes,
-      label: cleanLabel(request.data?.label),
       state: "reserved",
       createdAt: FieldValue.serverTimestamp(),
       expiresAt: Timestamp.fromMillis(Date.now() + RESERVATION_LIFETIME_MS)
@@ -147,9 +157,8 @@ exports.finishImageUpload = onCall(async (request) => {
     if (!reservation.exists || reservation.data().state !== "reserved") {
       throw new HttpsError("failed-precondition", "تعذر إتمام رفع الصورة.");
     }
-    const current = usage.exists ? usage.data() : { usedBytes: 0, reservedBytes: 0 };
+    const current = storageUsage(usage);
     const reservedBytes = reservation.data().expectedBytes;
-    const label = cleanLabel(request.data?.label, reservation.data().label);
     transaction.set(usageRef, {
       usedBytes: current.usedBytes + actualBytes,
       reservedBytes: Math.max(0, current.reservedBytes - reservedBytes),
@@ -160,7 +169,6 @@ exports.finishImageUpload = onCall(async (request) => {
       storagePath,
       url,
       fileName,
-      label,
       sizeBytes: actualBytes,
       createdAt: FieldValue.serverTimestamp()
     });
@@ -183,7 +191,7 @@ exports.cancelImageUpload = onCall(async (request) => {
       transaction.get(reservationRef), transaction.get(usageRef), transaction.get(galleryRef)
     ]);
     if (!currentReservation.exists || gallery.exists) return;
-    const current = usage.exists ? usage.data() : { usedBytes: 0, reservedBytes: 0 };
+    const current = storageUsage(usage);
     transaction.set(usageRef, {
       usedBytes: current.usedBytes,
       reservedBytes: Math.max(0, current.reservedBytes - currentReservation.data().expectedBytes),
@@ -219,7 +227,7 @@ exports.deleteGalleryImage = onCall(async (request) => {
   await db.runTransaction(async (transaction) => {
     const [currentImage, usage] = await Promise.all([transaction.get(galleryRef), transaction.get(usageRef)]);
     if (!currentImage.exists) return;
-    const current = usage.exists ? usage.data() : { usedBytes: 0, reservedBytes: 0 };
+    const current = storageUsage(usage);
     transaction.set(usageRef, {
       usedBytes: Math.max(0, current.usedBytes - currentImage.data().sizeBytes),
       reservedBytes: current.reservedBytes,
