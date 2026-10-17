@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#f4f1eb">
+  <title>إدارة الموقع | لمسات ديانا</title>
+  <link rel="icon" type="image/png" href="all/صور/png/logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-header"><a href="index.html" class="admin-brand">لمسات <em>ديانا</em></a><span>لوحة إدارة الموقع</span></header>
+    <section class="panel login-panel" data-login-panel>
+      <p class="eyebrow">مساحة خاصة</p>
+      <h1>تسجيل الدخول</h1>
+      <p class="subtle">استخدم حساب الإدارة للمتابعة.</p>
+      <form data-login-form>
+        <label>البريد الإلكتروني<input name="email" type="email" autocomplete="username" required></label>
+        <label>كلمة المرور<input name="password" type="password" autocomplete="current-password" required></label>
+        <button class="primary-button" type="submit">دخول</button>
+      </form>
+      <button class="text-button" type="button" data-reset-password>نسيت كلمة المرور؟</button>
+    </section>
+
+    <section class="dashboard" data-dashboard hidden>
+      <div class="dashboard-heading"><div><p class="eyebrow">معرض الصور</p><h1>إدارة الصور</h1></div><button class="secondary-button" type="button" data-sign-out>تسجيل الخروج</button></div>
+      <section class="panel upload-panel">
+        <h2>إضافة صور</h2>
+        <p class="subtle">اختَر الصور وسيتم تجهيزها تلقائيًا قبل رفعها.</p>
+        <form data-upload-form>
+          <label>وصف الصور<input name="label" type="text" maxlength="80" placeholder="مثال: جلسة زفاف"></label>
+          <label class="file-picker">اختيار الصور<input name="images" type="file" accept="image/*" multiple required><span data-file-names>لم يتم اختيار صور</span></label>
+          <button class="primary-button" type="submit">رفع الصور</button>
+        </form>
+        <div class="progress-track" data-progress-track hidden><span data-progress-bar></span></div>
+      </section>
+      <div class="gallery-toolbar"><h2>الصور المضافة</h2><button class="text-button" type="button" data-refresh>تحديث</button></div>
+      <div class="admin-gallery" data-admin-gallery></div>
+    </section>
+    <p class="status-message" data-status role="status" aria-live="polite"></p>
+  </main>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>

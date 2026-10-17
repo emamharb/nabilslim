@@ -1,0 +1,34 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email == 'nabilslim@admin.com';
+    }
+
+    match /gallery/{uid}/{fileName} {
+      function reservation() {
+        return firestore.get(/databases/(default)/documents/uploadReservations/$(uid)/files/$(fileName)).data;
+      }
+
+      allow read: if true;
+      allow create: if isAdmin()
+        && request.auth.uid == uid
+        && fileName.matches('^[a-f0-9-]{36}\\.webp$')
+        && request.resource.contentType == 'image/webp'
+        && request.resource.size > 0
+        && request.resource.size <= 250000
+        && firestore.exists(/databases/(default)/documents/uploadReservations/$(uid)/files/$(fileName))
+        && reservation().uid == uid
+        && reservation().state == 'reserved'
+        && reservation().expectedBytes == request.resource.size
+        && reservation().expiresAt > request.time;
+
+      allow update, delete: if false;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
