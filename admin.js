@@ -42,6 +42,7 @@ const progressBar = document.querySelector("[data-progress-bar]");
 const progressRole = document.querySelector("[data-progress-role]");
 const uploadStage = document.querySelector("[data-upload-stage]");
 const uploadCounter = document.querySelector("[data-upload-counter]");
+const uploadPercent = document.querySelector("[data-upload-percent]");
 const uploadQueue = document.querySelector("[data-upload-queue]");
 
 function setStatus(message, isError = false) {
@@ -130,6 +131,8 @@ imageInput.addEventListener("change", () => {
   progressTrack.hidden = false;
   progressBar.style.width = "0%";
   progressRole.setAttribute("aria-valuenow", "0");
+  uploadPercent.textContent = "0٪";
+  uploadPercent.textContent = "0٪";
 });
 
 function canvasBlob(canvas, quality) {
@@ -203,6 +206,7 @@ uploadForm.addEventListener("submit", async (event) => {
     const value = Math.max(0, Math.min(100, Math.round(percent)));
     progressBar.style.width = `${value}%`;
     progressRole.setAttribute("aria-valuenow", String(value));
+    uploadPercent.textContent = `${value}٪`;
   };
   const updateQueue = (index, state, text) => {
     const item = queueItems[index];
@@ -227,7 +231,7 @@ uploadForm.addEventListener("submit", async (event) => {
         setStatus(`جارٍ رفع ${file.name}...`);
         await uploadBlob(compressed, storagePath, (fraction) => {
           updateProgress(((index + fraction) / files.length) * 100);
-          updateQueue(index, "active", `جارٍ الرفع · ${Math.round(fraction * 100)}٪`);
+          updateQueue(index, "active", "جارٍ الرفع");
         });
         await finishImageUpload({ fileName });
         completedUploads += 1;
@@ -242,6 +246,7 @@ uploadForm.addEventListener("submit", async (event) => {
             : friendlyError(error);
         failures.push({ name: file.name, message });
         updateQueue(index, "error", "تعذر الرفع");
+        updateProgress(((index + 1) / files.length) * 100);
       }
     }
     updateProgress(100);
